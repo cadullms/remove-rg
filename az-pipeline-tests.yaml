@@ -1,0 +1,25 @@
+trigger:
+  branches:
+    include:
+    - '*'
+  paths:
+    include:
+    - '*'
+    
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: |
+      Install-Module -Name Pester -Force -SkipPublisherCheck
+      Invoke-Pester -Path "$(Build.SourcesDirectory)\Remove-RgAndAssociatedObjects.tests.ps1" -OutputFile "$(Build.SourcesDirectory)\TEST-ProvisionPublicSubscription.xml"
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'NUnit'
+    testResultsFiles: '**/TEST-*.xml'
+    failTaskOnFailedTests: true

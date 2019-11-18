@@ -1,0 +1,65 @@
+trigger:
+  branches:
+    include:
+    - '*'
+  paths:
+    include:
+    - '*'
+    
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+
+- task: PowerShell@2
+  displayName: 'Install Pester'
+  inputs:
+    targetType: 'inline'
+    script: |
+      Install-Module -Name Pester -Force -SkipPublisherCheck
+
+- task: PowerShell@2
+  displayName: 'Execute Unit Tests'
+  inputs:
+    targetType: 'inline'
+    script: |
+      Invoke-Pester -Path "$(Build.SourcesDirectory)\Remove-RgAndAssociatedObjects.tests.ps1" -OutputFile "$(Build.SourcesDirectory)\TEST-RgAndAssociatedObjects.tests.unit.xml"
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'NUnit'
+    testResultsFiles: '**/*tests.unit.xml'
+    failTaskOnFailedTests: true
+    testRunTitle: 'Unit Tests'
+    searchFolder: '$(Build.SourcesDirectory)'
+
+- task: AzurePowerShell@4
+  displayName: 'Execute E2E Tests'
+  inputs:
+    azureSubscription: 'delrgsp'
+    ScriptType: 'InlineScript'
+    Inline: |
+      Invoke-Pester -Path "$(Build.SourcesDirectory)\Remove-RgAndAssociatedObjects.tests.e2e.ps1" -OutputFile "$(Build.SourcesDirectory)\TEST-Remove-RgAndAssociatedObjects.tests.e2e.xml"
+    azurePowerShellVersion: 'LatestVersion'
+      
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'NUnit'
+    testResultsFiles: '**/*tests.e2e.xml'
+    failTaskOnFailedTests: true
+    testRunTitle: 'E2E Tests'
+    searchFolder: '$(Build.SourcesDirectory)'
+
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)'
+    Contents: |
+      Remove-RgAndAssociatedObjects.Implementation.ps1
+      Remove-RgAndAssociatedObjects.ps1
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
